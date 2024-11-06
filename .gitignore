@@ -1,0 +1,8 @@
+.vscode/
+*.LST
+*.OBJ
+*.lnp
+*.plg
+OBJ/
+LIST/
+
