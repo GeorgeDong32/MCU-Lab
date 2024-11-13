@@ -31,7 +31,7 @@ DISP1:	INC		R3       ; 增加R3寄存器的值
 		RET              ; 返回主程序
 TABLE:	DB 0C0H, 0F9H, 0A4H, 0B0H, 99H, 92H, 82H, 0F8H ; 定义显示字符的查找表
 		DB 80H, 90H, 88H, 83H, 0C6H, 0A1H, 86H, 8EH ; 定义更多显示字符
-IN0:		PUSH	ACC    ; 保存累加器的值
+IN0:	PUSH	ACC    ; 保存累加器的值
 		PUSH	PSW    ; 保存程序状态字
 		MOV	PSW, #10H ; 切换到寄存器组1
 		MOV	R2, #0   ; 将R2寄存器初始化为0
@@ -39,7 +39,7 @@ IN0:		PUSH	ACC    ; 保存累加器的值
 		POP		PSW    ; 恢复程序状态字
 		POP		ACC    ; 恢复累加器的值
 		RETI           ; 返回主程序并使能中断
-IN1:		PUSH	ACC    ; 保存累加器的值
+IN1:	PUSH	ACC    ; 保存累加器的值
 		PUSH	PSW    ; 保存程序状态字
 		MOV	PSW, #18H ; 切换到寄存器组3
 		MOV	R2, #1   ; 将R2寄存器初始化为1
