@@ -1,8 +1,9 @@
-        ORG     0000H           ; 设置程序起始地址为0000H
+ORG     0000H           ; 设置程序起始地址为0000H
         LJMP    START   ; 跳转到START标签处执行
-        ORG     0013H           ; 设置中断向量地址为0013H
+ORG     0013H           ; 设置中断向量地址为0013H
         LJMP    INFARED ; 跳转到INFARED标签处执行
-        ORG     0050H           ; 设置程序地址为0050H
+ORG     0050H           ; 设置程序地址为0050H
+
 START:  
         MOV     TMOD, #01H   ; 设置定时器0为模式1（16位定时器）
         MOV     TL0, #00H    ; 初始化定时器0低8位
@@ -16,20 +17,53 @@ START:
         CLR     10H          ; 清除标志位10H
         MOV     30H, #00H    ; 初始化存储红外数据的寄存器30H
         MOV     31H, #00H    ; 初始化存储红外数据的寄存器31H
-        MOV     32H, #7FH    ; 初始化存储红外数据的寄存器32H
+        MOV     32H, #0FFH   ; 初始化存储红外数据的寄存器32H
         MOV     33H, #00H    ; 初始化存储红外数据的寄存器33H
+        MOV     50H, #0FEH   ; 存储当前显示值,初始为0000_0001
+        MOV     51H, #00H    ; 存储显示方向,0表示左移,1表示右移
+        MOV     P0, #0FFH    ; 初始化P0口为1111_1111
 
 DISP:   
-        MOV     P1, #0E8H    ; 设置P1端口输出值为0E8H
-        MOV     A, 32H       ; 将32H寄存器的值移动到累加器A
-        ACALL   CONVERT      ; 调用转换子程序
-        MOV     P0, A        ; 将累加器A的值输出到P0端口
-        LCALL   DELAY        ; 调用延时子程序
-        SJMP    DISP         ; 无条件跳转到DISP标签处
+        MOV     P1, #0EEH    ; 输出1110_1110    
+        MOV     A, 51H       ; 检查是否接收到红外信号
+        JZ      NO_SIGNAL    ; 如果51H为0，表示未接收到信号
+        
+        MOV     A, 32H       ; 接收到信号，执行原有的显示逻辑
+        CJNE    A, #38H, CHECK_A2  ; 检查是否为38H
+        MOV     A, 50H
+        MOV     P0, A         ; 输出当前值
+        LCALL   DELAY_400MS   ; 延时0.4s
+        MOV     A, 50H       
+        RR      A             ; 右移一位
+        MOV     50H, A        
+        CJNE    A, #00H, DISP ; 如果未溢出则继续
+        MOV     50H, #01H    ; 重新开始
+        SJMP    DISP
+
+NO_SIGNAL:
+        MOV     P0, #0FFH    ; 未接收到信号时输出1111_1111
+        SJMP    DISP
+
+CHECK_A2:
+        CJNE    A, #0A2H, OTHER_CASE  ; 检查是否为0A2H
+        MOV     P0, #0FFH     ; 输出1111_1111
+        SJMP    DISP
+
+OTHER_CASE:
+        MOV     A, 50H
+        MOV     P0, A         ; 输出当前值
+        LCALL   DELAY_400MS   ; 延时0.4s
+        MOV     A, 50H
+        RL      A             ; 左移一位
+        MOV     50H, A
+        CJNE    A, #00H, DISP ; 如果未溢出则继续
+        MOV     50H, #80H     ; 重新开始
+        SJMP    DISP
 
 INFARED: 
         PUSH    ACC          ; 保存累加器A的值到堆栈
         CLR     EA           ; 关闭全局中断
+        MOV     51H, #01H    ; 设置接收到信号的标志位
         LCALL   READ         ; 调用读取红外数据子程序
 
 END_INFA: 
@@ -72,17 +106,17 @@ END_READ:
         RET                 ; 返回
 
 T_HEAD1: 
-        MOV     44H, #34    ; 设置比较值高8位为34H
-        MOV     43H, #51    ; 设置比较值低8位为51H
-        MOV     42H, #25    ; 设置比较值高8位为25H
-        MOV     41H, #154   ; 设置比较值低8位为154H
+        MOV     44H, #34    ; 设置比较值高8位为34
+        MOV     43H, #51    ; 设置比较值低8位为51
+        MOV     42H, #25    ; 设置比较值高8位为25
+        MOV     41H, #154   ; 设置比较值低8位为154
         RET                 ; 返回
 
 T_HEAD2: 
-        MOV     44H, #18    ; 设置比较值高8位为18H
+        MOV     44H, #18    ; 设置比较值高8位为18
         MOV     43H, #0     ; 设置比较值低8位为0
-        MOV     42H, #14    ; 设置比较值高8位为14H
-        MOV     41H, #102   ; 设置比较值低8位为102H
+        MOV     42H, #14    ; 设置比较值高8位为14
+        MOV     41H, #102   ; 设置比较值低8位为102
         RET                 ; 返回
 
 T_BIT1: 
@@ -165,66 +199,6 @@ BIT_1:
 END_BIT: 
         RET                 ; 返回
 
-CONVERT:
-        ; 根据32H的值转换输出到P0口
-        CJNE    A, #7FH, CHECK_68 ; 如果A不等于7FH，跳转到CHECK_B0
-        MOV     A, #7FH    ; 将7FH移动到累加器A
-        RET
-
-CHECK_68:        
-        CJNE    A, #68H, CHECK_B0 ; 如果A不等于68H，跳转到CHECK_B0
-        MOV     A, #0C0H    ; 将0C0H移动到累加器A
-        RET
-
-CHECK_B0:
-        CJNE    A, #30H, CHECK_18 ; 如果A不等于30H，跳转到CHECK_18
-        MOV     A, #0F9H    ; 将0F9H移动到累加器A
-        RET
-
-CHECK_18:
-        CJNE    A, #18H, CHECK_7A  ; 如果A不等于18H，跳转到CHECK_7A
-        MOV     A, #0A4H    ; 将0A4H移动到累加器A
-        RET
-
-CHECK_7A:
-        CJNE    A, #7AH, CHECK_10  ; 如果A不等于7AH，跳转到CHECK_10
-        MOV     A, #0B0H    ; 将0B0H移动到累加器A
-        RET
-
-CHECK_10:
-        CJNE    A, #10H, CHECK_38  ; 如果A不等于10H，跳转到CHECK_38
-        MOV     A, #99H     ; 将99H移动到累加器A
-        RET
-
-CHECK_38:
-        CJNE    A, #38H, CHECK_5A  ; 如果A不等于38H，跳转到CHECK_5A
-        MOV     A, #92H     ; 将92H移动到累加器A
-        RET
-
-CHECK_5A:
-        CJNE    A, #5AH, CHECK_42  ; 如果A不等于5AH，跳转到CHECK_42
-        MOV     A, #82H     ; 将82H移动到累加器A
-        RET
-
-CHECK_42:
-        CJNE    A, #42H, CHECK_4A  ; 如果A不等于42H，跳转到CHECK_4A
-        MOV     A, #0F8H    ; 将0F8H移动到累加器A
-        RET
-
-CHECK_4A:
-        CJNE    A, #4AH, CHECK_52  ; 如果A不等于4AH，跳转到CHECK_52
-        MOV     A, #80H     ; 将80H移动到累加器A
-        RET
-
-CHECK_52:
-        CJNE    A, #52H, END_CONVERT ; 如果A不等于52H，跳转到END_CONVERT
-        MOV     A, #90H     ; 将90H移动到累加器A
-        RET
-
-END_CONVERT:
-        MOV     A, P0       ; 读取P0口的值赋给累加器A
-        RET                 ; 返回
-
 DELAY:  
         MOV     R6, #20     ; 设置R6为20
 
@@ -235,5 +209,20 @@ DEL2:
         DJNZ    R7, DEL2    ; 如果R7不为0，跳转到DEL2
         DJNZ    R6, DEL1    ; 如果R6不为0，跳转到DEL1
         RET                 ; 返回
+
+DELAY_400MS:                 ; 0.4s延时子程序
+        MOV     R5, #4       ; 循环4次100ms延时
+
+DELAY_100MS:
+        MOV     R6, #200     
+
+DEL_1:   
+        MOV     R7, #250     
+
+DEL_2:   
+        DJNZ    R7, DEL_2    
+        DJNZ    R6, DEL_1    
+        DJNZ    R5, DELAY_100MS
+        RET                 
 
         END                 ; 程序结束
