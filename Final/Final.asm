@@ -80,36 +80,36 @@ TMR_ISR:                 ; 定时器0中断服务程序
     JNC MUTE_BEEP        ; >=10则静音
     
     MOV A, LED_IDX
-    CLR C
-    SUBB A, #5
-    MOV FREQ_IDX, A
+    CLR C                ; 清除进位标志
+    SUBB A, #5           ; 计算频率索引
+    MOV FREQ_IDX, A      ; 保存频率索引
     
-    MOV A, TMR_CNT
-    JZ SKIP_T
-    CPL P1.6
+    MOV A, TMR_CNT       ; 获取定时器计数值
+    JZ SKIP_T            ; 如果计数值为0则跳过
+    CPL P1.6             ; 反转蜂鸣器控制位
 SKIP_T:    
     SJMP UPDATE_TMR
 MUTE_BEEP:
     CLR P1.6
     MOV FREQ_IDX, #0
 UPDATE_TMR:
-    MOV A, FREQ_IDX
+    MOV A, FREQ_IDX       ; 获取当前频率索引
     ADD A, ACC            ; 频率值占2字节
-    ADD A, #FREQ_MEM
-    MOV R0, A
-    MOV A, @R0
-    MOV TH0, A           ; 设置定时器高字节
-    INC R0
-    MOV A, @R0
-    MOV TL0, A           ; 设置定时器低字节
-    INC TMR_CNT
-    MOV A, TMR_CNT
-    CJNE A, #HALF_SEC, TMR_EXIT
-    MOV TMR_CNT, #0
-    INC LED_IDX
-    MOV A, LED_IDX
-    CJNE A, #0AH, TMR_EXIT
-    MOV LED_IDX, #00H
+    ADD A, #FREQ_MEM      ; 加上频率表基址
+    MOV R0, A             ; R0指向频率数据
+    MOV A, @R0            ; 读取高字节
+    MOV TH0, A            ; 设置定时器高字节
+    INC R0                ; 指向低字节
+    MOV A, @R0            ; 读取低字节
+    MOV TL0, A            ; 设置定时器低字节
+    INC TMR_CNT           ; 计数器加1
+    MOV A, TMR_CNT        ; 获取计数器值
+    CJNE A, #HALF_SEC, TMR_EXIT ; 判断是否达到半秒
+    MOV TMR_CNT, #0       ; 重置计数器
+    INC LED_IDX           ; LED索引加1
+    MOV A, LED_IDX        ; 获取LED索引
+    CJNE A, #0AH, TMR_EXIT ; 判断是否达到10
+    MOV LED_IDX, #00H     ; 重置LED索引
 TMR_EXIT:
     POP PSW
     POP ACC
